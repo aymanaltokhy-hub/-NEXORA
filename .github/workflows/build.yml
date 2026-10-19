@@ -22,7 +22,7 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         run: |
           if ([string]::IsNullOrEmpty($env:CSC_LINK)) { Remove-Item Env:CSC_LINK -ErrorAction SilentlyContinue; Remove-Item Env:CSC_KEY_PASSWORD -ErrorAction SilentlyContinue; $env:CSC_IDENTITY_AUTO_DISCOVERY = 'false' }
-          npx electron-builder --win --publish never -c.win.signAndEditExecutable=true 2>&1 | Tee-Object -FilePath build.log
+          npx electron-builder --win --publish never '-c.win.signAndEditExecutable=true' 2>&1 | Tee-Object -FilePath build.log
           if ($LASTEXITCODE -ne 0) {
             $t = ((Get-Content build.log -Tail 30) -join '%0A') -replace '\x1b\[[0-9;]*m',''
             Write-Host "::error title=electron-builder failed::$t"
