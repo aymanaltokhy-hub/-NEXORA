@@ -1,0 +1,84 @@
+{
+  "name": "nexora",
+  "version": "0.4.0",
+  "private": true,
+  "main": "main.js",
+  "description": "NEXORA - Visual Link Workspace",
+  "scripts": {
+    "dev": "concurrently -k \"vite\" \"wait-on http-get://127.0.0.1:5173 && electron . --dev\"",
+    "start": "vite build && electron .",
+    "dist": "vite build && electron-builder --win",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "pack": "vite build && electron-builder --win dir",
+    "build:web": "vite build --mode web"
+  },
+  "dependencies": {
+    "konva": "^9.3.14",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-konva": "^18.2.10",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "concurrently": "^9.0.1",
+    "electron": "^36.9.5",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8",
+    "vitest": "^2.1.2",
+    "wait-on": "^8.0.1",
+    "fake-indexeddb": "^6.0.0"
+  },
+  "build": {
+    "appId": "com.nexora.app",
+    "productName": "MADAR",
+    "files": [
+      "dist/**",
+      "main.js",
+      "preload.js",
+      "vault.js",
+      "ipc-extra.js",
+      "ipc-scene.js",
+      "db.js",
+      "build/icon.png",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "NEXORA"
+    },
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "artifactName": "MADAR-${version}-${os}.${ext}"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "author": "NEXORA"
+}

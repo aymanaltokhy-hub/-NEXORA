@@ -1,0 +1,25 @@
+name: Build MADAR
+on:
+  push: { branches: [main], tags: ['v*'] }
+  workflow_dispatch:
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm install
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build:web
+      - run: npx vite build
+      # Installer (NSIS) + portable zip. If the CSC_LINK / CSC_KEY_PASSWORD secrets exist, electron-builder signs automatically; otherwise the build is unsigned.
+      - run: npx electron-builder --win --publish never -c.win.signAndEditExecutable=true
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      - uses: actions/upload-artifact@v4
+        with: { name: madar-windows, path: "release/*.exe\nrelease/*.zip" }
+      - uses: actions/upload-artifact@v4
+        with: { name: madar-web, path: dist-web }
