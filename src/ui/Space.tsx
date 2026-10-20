@@ -20,7 +20,7 @@ export default function Space(p: SpaceProps) {
       })
     } catch { cb.current.onStatus('fail'); return }
     p.engineRef.current = e; e.inboxName = cb.current.inboxName; e.setSettings(cb.current.scene.settings); e.setData(cb.current.scene)
-    const cam = cb.current.scene.settings.camera; cam.moved ? e.setCamera(cam.pos, cam.target) : e.viewAll(true); cb.current.onStatus('ok')
+    const cam = cb.current.scene.settings.camera; cam.moved ? e.setCamera(cam.pos, cam.target) : e.viewAll(true); e.alignBackground(); cb.current.onStatus('ok')
     return () => { e.dispose(); p.engineRef.current = null }
   }, [])
   const e = () => p.engineRef.current

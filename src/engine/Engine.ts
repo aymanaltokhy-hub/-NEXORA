@@ -736,7 +736,9 @@ totalEmissiveRadiance += diffuseColor.rgb * vGlow * 1.6;`);
             vec3 p = c + toCam * r * 0.9 + (right * position.x + up * position.y) * r * 0.97; vL = uv; vUv = aCell + vec2(uv.x, 1.0 - uv.y) * uCell; vOk = step(0.0, aCell.x); gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0); }`,
                 fragmentShader: `uniform sampler2D uAtlas; varying vec2 vUv; varying vec2 vL; varying float vOk;
           void main(){ if (vOk < 0.5) discard; vec4 t = texture2D(uAtlas, vUv); if (t.a < 0.05) discard; float d = length(vL - 0.5) * 2.0; float spec = smoothstep(0.55, 0.0, length(vL - vec2(0.36, 0.68))) * 0.28;
-            vec3 col = t.rgb * (1.0 - 0.34 * d * d) + spec; gl_FragColor = vec4(col, 1.0); #include <colorspace_fragment> }`
+            vec3 col = t.rgb * (1.0 - 0.34 * d * d) + spec; gl_FragColor = vec4(col, 1.0);
+#include <colorspace_fragment>
+}`
             });
             this.icons = new THREE.InstancedMesh(l, c, length);
             this.icons.frustumCulled = false;
@@ -782,7 +784,7 @@ totalEmissiveRadiance += diffuseColor.rgb * vGlow * 1.6;`);
             blending: THREE.AdditiveBlending,
             vertexShader: `attribute vec3 aColor; attribute float aGlow; varying vec3 vC; varying float vG; varying vec2 vL;
         void main(){ vec3 c = instanceMatrix[3].xyz; float r = length(instanceMatrix[0].xyz); ${n0} vL = position.xy; vC = aColor; vG = aGlow; gl_Position = projectionMatrix * viewMatrix * vec4(c + (right * position.x + up * position.y) * r, 1.0); }`,
-            fragmentShader: "varying vec3 vC; varying float vG; varying vec2 vL; void main(){ float d = length(vL); float a = pow(max(0.0, 1.0 - d), 2.2) * vG * 1.25; gl_FragColor = vec4(vC * a, a); #include <colorspace_fragment> }"
+            fragmentShader: "varying vec3 vC; varying float vG; varying vec2 vL; void main(){ float d = length(vL); float a = pow(max(0.0, 1.0 - d), 2.2) * vG * 1.25; gl_FragColor = vec4(vC * a, a);\n#include <colorspace_fragment>\n}"
         });
         this.halo = new THREE.InstancedMesh(i, o, length);
         this.halo.frustumCulled = false;
@@ -993,6 +995,13 @@ totalEmissiveRadiance += diffuseColor.rgb * vGlow * 1.6;`);
             coarse: COARSE
         });
         this.bgGroup.add(this.bg.group);
+        this.alignBackground();
+    }
+    /** Turns the sky so its main objects (galaxy, black hole, sun...) sit in front of the current view direction instead of somewhere out of frame. */
+    alignBackground() {
+        const f = this.cam.getWorldDirection(new THREE.Vector3());
+        this.bgGroup.rotation.set(Math.asin(THREE.MathUtils.clamp(f.y, -1, 1)) * 0.6, Math.atan2(-f.x, -f.z), 0, "YXZ");
+        this.dirty = true;
     }
     projRadius(e) {
         const n = new THREE.Vector3(this.pos[e * 3], this.pos[e * 3 + 1], this.pos[e * 3 + 2]).distanceTo(this.cam.position);
