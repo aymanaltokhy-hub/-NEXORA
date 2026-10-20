@@ -24,13 +24,13 @@ Shortcuts: Ctrl+Z/Y undo/redo · Ctrl+N new link · F focus selection · Home vi
 Motion: play/pause + speed; motion starts off if your OS asks for reduced motion. Positions are stored as orbit parameters, never per frame.
 Backgrounds: Black / Stars / Nebula, color, star density, effect intensity, or a local image (PNG/JPEG/WebP up to 5 MB, stored only on this device).
 Export/Import: JSON with XYZ positions, orbits, background and camera. Import is validated (URLs restricted to http/https) and can be undone.
-Web build: `npm run build:web`; after the first visit it works offline (service worker).
+Source entry is `app/index.html` (Vite root = `app`). Web build: `npm run build:web`; after the first visit it works offline (service worker).
 
 ## Moving links between systems
 Select a link, switch to **Move** mode, then drag it into another system's boundary and release (you may need to orbit the camera so the link is at the same depth as the target; a highlight shows the target). Or use the *System* selector in the panel. Undo restores it. Double-click a link to open its site; double-click a system to focus it. Menu ⋯ → *Fetch site icons* downloads icons for links without one (desktop: via the app; web: asks before contacting an icon service).
 
 ## One app, every device
-- **Web / PWA (phone, tablet, PC):** open the GitHub Pages site, then *Install* (Chrome/Edge: menu ⋯ → Install app; Safari/iOS: Share → Add to Home Screen). Works offline after the first visit. Layout adapts: side panel on wide screens, bottom sheet on phones/tablets; touch gestures (one finger rotate, two fingers zoom/pan, tap to select).
+- **Web / PWA (phone, tablet, PC):** open https://aymanaltokhy-hub.github.io/MADAR/ (the built site is committed at the repository root by the *Publish web app* workflow; Pages serves branch `main`, folder `/`), then *Install* (Chrome/Edge: menu ⋯ → Install app; Safari/iOS: Share → Add to Home Screen). Works offline after the first visit. Layout adapts: side panel on wide screens, bottom sheet on phones/tablets; touch gestures (one finger rotate, two fingers zoom/pan, tap to select).
 - **Windows desktop:** portable zip / installer from GitHub Actions (same code, data in `%APPDATA%\nexora`).
 - Data lives on each device (IndexedDB on the web, SQLite on desktop). There is no cloud sync: use **Export/Import** or the encrypted vault backup to move data between devices.
 
