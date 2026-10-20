@@ -1,4 +1,4 @@
-# MADAR | مدار (v0.6 — phone, tablet and desktop)
+# MADAR | مدار (v0.7)
 Personal 3D space for links, built on NEXORA. Desktop (Electron, SQLite) and web/PWA (IndexedDB) share one codebase.
 
 ## Run
@@ -26,6 +26,9 @@ Backgrounds: Black / Stars / Nebula, color, star density, effect intensity, or a
 Export/Import: JSON with XYZ positions, orbits, background and camera. Import is validated (URLs restricted to http/https) and can be undone.
 Web build: `npm run build:web`; after the first visit it works offline (service worker).
 
+## Moving links between systems
+Select a link, switch to **Move** mode, then drag it into another system's boundary and release (you may need to orbit the camera so the link is at the same depth as the target; a highlight shows the target). Or use the *System* selector in the panel. Undo restores it. Double-click a link to open its site; double-click a system to focus it. Menu ⋯ → *Fetch site icons* downloads icons for links without one (desktop: via the app; web: asks before contacting an icon service).
+
 ## One app, every device
 - **Web / PWA (phone, tablet, PC):** open the GitHub Pages site, then *Install* (Chrome/Edge: menu ⋯ → Install app; Safari/iOS: Share → Add to Home Screen). Works offline after the first visit. Layout adapts: side panel on wide screens, bottom sheet on phones/tablets; touch gestures (one finger rotate, two fingers zoom/pan, tap to select).
 - **Windows desktop:** portable zip / installer from GitHub Actions (same code, data in `%APPDATA%\nexora`).
@@ -35,4 +38,4 @@ Web build: `npm run build:web`; after the first visit it works offline (service 
 Same format everywhere: PBKDF2-SHA256 (600,000 iterations) + AES-256-GCM per entry, key kept in memory only, auto-lock, clipboard auto-clear, generator, strength meter, duplicate detection, encrypted backup/restore. Scenes reference entries by id only (no secrets in the 3D scene). Desktop users can import their previous vault (Classic board) with the same master password. **No independent security audit has been done.** See THREAT_MODEL.md.
 
 ## Not done yet
-Argon2id (WebCrypto has none; PBKDF2 is used) · cloud sync · native app-store builds (the PWA is the phone/tablet app) · dragging a link onto a planet to re-assign it (use the System selector in the panel) · automated GPU performance measurements · installer signing.
+Argon2id (WebCrypto has none; PBKDF2 is used) · cloud sync · native app-store builds (the PWA is the phone/tablet app) · automated GPU performance measurements · installer signing.

@@ -39,3 +39,35 @@ describe('import validation', () => {
     expect(() => validateScene(c((x) => (x.bodies[0].color = 'url(evil)')))).toThrow()
   })
 })
+import { updateBody, updateOrbit, resetOrbit } from '../src/model/ops'
+describe('orbit & size editing', () => {
+  const base = () => { let { s, a, b } = mk(); const ids: string[] = []; for (let i = 0; i < 12; i++) { const r = addBody(s, a, { url: `https://x${i}.com` }); s = r.scene; ids.push(r.id) } return { s, a, b, ids } }
+  it('direction flips the sign only and survives re-balancing; speed ratio is kept', () => {
+    let { s, a, ids } = base(); s = updateOrbit(s, ids[0], { dir: -1 }); expect(s.bodies.find((x) => x.id === ids[0])!.orbit.speed).toBeLessThan(0)
+    s = updateOrbit(s, ids[0], { speedMult: 2 }); const m = Math.abs(s.bodies.find((x) => x.id === ids[0])!.orbit.speed) / (0.5 / Math.sqrt(s.bodies.find((x) => x.id === ids[0])!.orbit.radius)); expect(m).toBeCloseTo(2, 5)
+    s = addBody(s, a, { url: 'https://new.com' }).scene; const o = s.bodies.find((x) => x.id === ids[0])!.orbit; expect(o.speed).toBeLessThan(0); expect(Math.abs(o.speed) / (0.5 / Math.sqrt(o.radius))).toBeCloseTo(2, 5)
+  })
+  it('custom orbits are kept by auto-layout and can be reset; distance never goes inside the planet', () => {
+    let { s, a, ids } = base(); s = updateOrbit(s, ids[3], { radius: 30, ecc: 0.4, incl: 0.5 }); const o1 = s.bodies.find((x) => x.id === ids[3])!.orbit; expect(o1).toMatchObject({ radius: 30, ecc: 0.4, custom: true })
+    s = addBody(s, a, { url: 'https://n.com' }).scene; expect(s.bodies.find((x) => x.id === ids[3])!.orbit.radius).toBe(30)
+    s = updateOrbit(s, ids[3], { radius: 0.1 }); expect(s.bodies.find((x) => x.id === ids[3])!.orbit.radius).toBeGreaterThan(s.systems.find((x) => x.id === a)!.radius)
+    s = resetOrbit(s, ids[3]); expect(s.bodies.find((x) => x.id === ids[3])!.orbit.custom).toBeFalsy()
+  })
+  it('enlarging a body keeps all auto orbits overlap-free (rings widen)', () => {
+    let { s, a, ids } = base(); s = updateBody(s, ids[0], { size: 1.8 })
+    const sys = s.systems.find((x) => x.id === a)!, p = s.bodies.filter((x) => x.systemId === a).map((x) => ({ p: bodyPosition(sys, x.orbit, 7), r: x.size })); let ok = true
+    for (let i = 0; i < p.length; i++) for (let j = i + 1; j < p.length; j++) if (Math.hypot(p[i].p[0] - p[j].p[0], p[i].p[1] - p[j].p[1], p[i].p[2] - p[j].p[2]) < p[i].r + p[j].r) ok = false
+    expect(ok).toBe(true); expect(updateBody(s, ids[0], { size: 99 }).bodies.find((x) => x.id === ids[0])!.size).toBe(2.5)
+  })
+  it('resizing a planet re-lays rings outside it and marks the size custom; elliptical positions stay on the ellipse', () => {
+    let { s, a, ids } = base(); s = updateSystem(s, a, { radius: 6 }); const sys = s.systems.find((x) => x.id === a)!; expect(sys).toMatchObject({ radius: 6, radiusCustom: true })
+    expect(Math.min(...s.bodies.filter((x) => x.systemId === a).map((x) => x.orbit.radius))).toBeGreaterThan(6 + 1)
+    const o = { radius: 10, angle: 0, speed: 0.1, incl: 0, node: 0, ecc: 0.6 }, p = bodyPosition({ x: 0, y: 0, z: 0 }, o, 0), q = bodyPosition({ x: 0, y: 0, z: 0 }, { ...o, angle: Math.PI / 2 }, 0)
+    expect(Math.hypot(p[0], p[2])).toBeCloseTo(10, 5); expect(Math.hypot(q[0], q[2])).toBeCloseTo(10 * Math.sqrt(1 - 0.36), 5)
+  })
+  it('glow and new orbit fields survive import validation (and bad glow is dropped)', () => {
+    let { s, a, ids } = base(); s = updateOrbit(s, ids[1], { ecc: 0.3, radius: 12 }); s = updateBody(s, ids[1], { glow: { color: '#ff8800', intensity: 0.7 } }); s = updateSystem(s, a, { glow: { color: '#ffee88', intensity: 1 } })
+    const v = validateScene(JSON.parse(JSON.stringify({ format: 'madar-scene-v1', scene: s }))); expect(v.bodies.find((x) => x.id === ids[1])).toMatchObject({ glow: { color: '#ff8800', intensity: 0.7 }, orbit: { ecc: 0.3, custom: true } }); expect(v.systems.find((x) => x.id === a)!.glow!.intensity).toBe(1)
+    const bad = JSON.parse(JSON.stringify(s)); bad.bodies[0].glow = { color: 'javascript:1', intensity: 5 }; expect(validateScene(bad).bodies[0].glow).toBeUndefined()
+  })
+})

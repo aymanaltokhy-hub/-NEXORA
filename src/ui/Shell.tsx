@@ -13,6 +13,8 @@ import { migrateLegacy } from '../model/migrate'
 import * as ops from '../model/ops'
 import { validateScene } from '../model/validate'
 import { normUrl, hostOf } from '../model/url'
+import { webIcon } from './iconFetch'
+import { openUrl } from './Panels'
 import type { Report, Scene, Vec3 } from '../model/types'
 import type { Engine, Sel } from '../engine/Engine'
 import { dirOf, t, type Lang } from '../i18n'
@@ -48,6 +50,7 @@ export default function Shell() {
   const redo = () => setH((c) => (c.future.length ? { scene: c.future[0], past: [...c.past, c.scene!], future: c.future.slice(1), t: 0 } : c))
   const setSettings = (p: Partial<Scene['settings']>) => silent((s) => ({ ...s, settings: { ...s.settings, ...p } }))
   const setBg = (p: any) => setSettings({ background: { ...scene!.settings.background, ...p } })
+  const setViewCfg = (p: any) => setSettings({ view: { labels: 'near', icons: true, ...scene!.settings.view, ...p } as any })
 
   // ----- persistence: debounced autosave with visible failure + retry -----
   const doSave = useCallback(async () => {
@@ -88,6 +91,16 @@ export default function Shell() {
     return true
   }
   const addSystem = (name: string) => { let id = ''; commit((s) => { const r = ops.addSystem(s, name.trim() || T('newSystem'), ['#6C8CFF', '#45D6B5', '#F5B83D', '#E4608A', '#9B7BFF', '#4CC9F0'][s.systems.length % 6]); id = r.id; return r.scene }); setTimeout(() => select({ kind: 'system', id }, true), 0); return true }
+  /** Fetch site icons for links that have none. Desktop asks the main process; the web build asks an icon service only after explicit consent. */
+  const fetchIcons = async () => {
+    if (!scene) return; const todo = scene.bodies.filter((b) => !b.favicon && b.url); if (!todo.length) return setToast(T('iconsNone'))
+    const desktop = isDesktop(); if (!desktop && !confirm(T('iconsWebConfirm'))) return
+    setToast(T('iconsStart')); let i = 0, got = 0
+    const worker = async () => { while (i < todo.length) { const b = todo[i++]; let ic: string | null = null
+      try { ic = desktop ? ((await (window as any).api.meta(b.url))?.favicon ?? null) : await webIcon(hostOf(b.url)) } catch {}
+      if (ic) { got++; silent((x) => ops.updateBody(x, b.id, { favicon: ic })) } } }
+    await Promise.all([worker(), worker(), worker()]); setToast(`${T('iconsDone')}: ${got}/${todo.length}`)
+  }
   const exportJson = () => { if (!scene) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({ format: 'madar-scene-v1', exported: new Date().toISOString(), scene }, null, 1)], { type: 'application/json' })); a.download = `madar-${ws.find((w) => w.id === wsId)?.name || 'workspace'}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000) }
   const importJson = async (f?: File) => {
     if (!f) return; try { const v = validateScene(JSON.parse(await f.text())); if (!confirm(T('confirmImport'))) return; commit(() => ({ ...v, settings: { ...v.settings, background: { ...v.settings.background, imageId: scene?.settings.background.imageId ?? null } } })); setToast(T('importOk')) } catch { setToast(T('importBad')) }
@@ -134,6 +147,7 @@ export default function Shell() {
           {more && <div className="m-pop m-menu" role="menu" onClick={() => setMore(false)}>
             <button role="menuitem" onClick={newWs}>{T('newWs')}</button>
             <button role="menuitem" onClick={demo}>{T('demo')}</button>
+            <button role="menuitem" onClick={fetchIcons} disabled={!scene}>{T('fetchIcons')}</button>
             <button role="menuitem" onClick={exportJson} disabled={!scene}>{T('export')}</button>
             <label className="m-btn" role="menuitem">{T('import')}<input type="file" accept="application/json,.json" hidden onChange={(e) => { importJson(e.target.files?.[0]); e.target.value = '' }} /></label>
             {isDesktop() && <a className="m-btn" role="menuitem" href="#classic" onClick={() => setTimeout(() => location.reload(), 0)}>{T('classic')}</a>}
@@ -151,7 +165,7 @@ export default function Shell() {
           <span className="m-sep" />
           <button onClick={() => setSettings({ motion: { ...scene!.settings.motion, enabled: !motionOn } })} aria-pressed={motionOn} title={reduced ? T('reducedOn') : ''}>{motionOn ? '⏸ ' + T('pause') : '▶ ' + T('play')}</button>
           <label className="m-inl">{T('speed')}<input type="range" min={0.2} max={4} step={0.1} value={scene?.settings.motion.speed ?? 1} onChange={(e) => setSettings({ motion: { ...scene!.settings.motion, speed: +e.target.value } })} /></label>
-          <div className="m-rel"><button onClick={() => setBgOpen(!bgOpen)} aria-expanded={bgOpen}>{T('background')}</button>{bgOpen && scene && <BgPanel lang={lang} scene={scene} setBg={setBg} onImage={onImage} onClose={() => setBgOpen(false)} />}</div></>}
+          <div className="m-rel"><button onClick={() => setBgOpen(!bgOpen)} aria-expanded={bgOpen}>{T('background')}</button>{bgOpen && scene && <BgPanel lang={lang} scene={scene} setBg={setBg} setView={setViewCfg} onImage={onImage} onClose={() => setBgOpen(false)} />}</div></>}
       </div>
       {report && <div className="m-note">✓ {T('migrated')}: {report.systems} {T('systems')} · {report.bodies} {T('bodies')} · {report.inbox} {T('inbox')}{(report.legacyKept.strokes + report.legacyKept.texts) > 0 && <> · {report.legacyKept.strokes} {T('strokes')} + {report.legacyKept.texts} {T('texts')} {T('kept')}</>}</div>}
       {gl === 'fail' && <div className="m-note warnbar">{T('webglFail')}</div>}{gl === 'lost' && <div className="m-note warnbar">{T('ctxLost')}</div>}
@@ -159,6 +173,8 @@ export default function Shell() {
       <div className="m-body">
         {scene && (is3d
           ? <div className="m-stagewrap"><Space scene={scene} selection={sel} mode={mode} bottomInset={narrow && sel ? Math.round(innerHeight * 0.4) : 0} bgUrl={bgUrl} inboxName={T('inbox')} engineRef={engine} onStatus={setGl} onPick={(s) => select(s)}
+              onDouble={(s) => { select(s); if (s.kind === 'body') { const b = scene.bodies.find((x) => x.id === s.id); if (b) openUrl(b.url) } else engine.current?.focus(s) }}
+              onBodyDrop={(id, sysId) => { if (!sysId) return setToast(T('dropNone')); commit((x) => ops.moveBody(x, id, sysId)); const n = scene.systems.find((x) => x.id === sysId); setToast(`${T('moved')}: ${n?.inbox ? T('inbox') : n?.name}`) }}
               onSystemMoved={(id, p: Vec3, final) => final && commit((s) => ops.updateSystem(s, id, { x: p[0], y: p[1], z: p[2] }))}
               onCamera={(c) => silent((s) => ({ ...s, settings: { ...s.settings, camera: { ...c, moved: true } } }))} />
               {!scene.systems.length && <p className="m-empty">{T('none')}</p>}<div className="m-hint" aria-hidden="true">{T(coarse ? 'hintTouch' : 'hint')}</div></div>
