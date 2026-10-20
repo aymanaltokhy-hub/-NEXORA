@@ -3,3 +3,5 @@ import { createRoot } from 'react-dom/client'
 import Shell from './ui/Shell'
 const Classic = lazy(() => import('./classic'))
 createRoot(document.getElementById('root')!).render(location.hash === '#classic' ? <Suspense fallback={null}><Classic /></Suspense> : <Shell />)
+
+if (import.meta.env.MODE === 'web' && 'serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('./sw.js').catch(() => {})

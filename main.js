@@ -25,7 +25,7 @@ CREATE INDEX idx_obj_ws ON objects(workspace_id);
 CREATE TABLE viewports(workspace_id TEXT PRIMARY KEY, x REAL, y REAL, scale REAL);
 CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);`]
 
-MIG.push(extra.MIG2); MIG.push(scene.MIG3)
+MIG.push(extra.MIG2); MIG.push(scene.MIG3); MIG.push(scene.MIG4)
 
 function openDb() {
   const dir = app.getPath('userData')

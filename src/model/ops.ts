@@ -1,0 +1,56 @@
+import { assignOrbits, MAXR } from './orbit'
+import type { Body, Scene, System, Vec3 } from './types'
+const uid = () => crypto.randomUUID()
+export const INBOX = 's_inbox'
+export const extentOf = (sc: Scene, id: string) => Math.max(sc.systems.find((s) => s.id === id)?.radius ?? 2, ...sc.bodies.filter((b) => b.systemId === id).map((b) => b.orbit.radius)) + MAXR
+/** Re-lays a system's rings so bodies never overlap (called after any membership/size change). Pure. */
+export function rebalance(sc: Scene, id: string): Scene {
+  const sys = sc.systems.find((s) => s.id === id); if (!sys) return sc
+  const mem = sc.bodies.filter((b) => b.systemId === id).sort((a, b) => a.created - b.created || a.id.localeCompare(b.id))
+  const radius = 2 + Math.min(1.5, mem.length / 200), { orbits } = assignOrbits(mem.length, radius), m = new Map(mem.map((b, i) => [b.id, orbits[i]]))
+  return { ...sc, systems: sc.systems.map((s) => (s.id === id ? { ...s, radius } : s)), bodies: sc.bodies.map((b) => (m.has(b.id) ? { ...b, orbit: m.get(b.id)! } : b)) }
+}
+/** Free spot to the right of everything, so a new system never overlaps an existing one. */
+export function freeSpot(sc: Scene, ext = 8): Vec3 {
+  const right = sc.systems.reduce((m, s) => Math.max(m, s.x + extentOf(sc, s.id)), -Infinity)
+  return [sc.systems.length ? right + ext + 4 : 0, 0, 0]
+}
+export function ensureInbox(sc: Scene): Scene {
+  if (sc.systems.some((s) => s.id === INBOX)) return sc
+  const [x, y, z] = freeSpot(sc)
+  return { ...sc, systems: [...sc.systems, { id: INBOX, inbox: true, name: 'Unsorted', color: '#8A94A8', x, y, z, radius: 2 }] }
+}
+export function addSystem(sc: Scene, name: string, color = '#6C8CFF', at?: Vec3): { scene: Scene; id: string } {
+  const id = uid(), [x, y, z] = at || freeSpot(sc)
+  return { scene: { ...sc, systems: [...sc.systems, { id, name: name.slice(0, 80) || 'System', color, x, y, z, radius: 2 }] }, id }
+}
+export function addBody(sc: Scene, systemId: string | null, p: Partial<Body> & { url: string }, now = Date.now()): { scene: Scene; id: string } {
+  let s = sc; if (!systemId || !s.systems.some((x) => x.id === systemId)) { s = ensureInbox(s); systemId = INBOX }
+  const id = uid(), host = (() => { try { return new URL(p.url).hostname.replace(/^www\./, '') } catch { return '' } })()
+  const b: Body = { id, systemId, title: (p.title || host || 'Link').slice(0, 120), url: p.url, favicon: p.favicon ?? null, color: p.color || `hsl(${[...host].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0) % 360} 60% 60%)`,
+    size: p.size ?? 0.5, fav: !!p.fav, tags: p.tags || [], notes: p.notes || '', orbit: { radius: 99, angle: 0, speed: 0, incl: 0, node: 0 }, created: now }
+  return { scene: rebalance({ ...s, bodies: [...s.bodies, b] }, systemId), id }
+}
+export function updateBody(sc: Scene, id: string, patch: Partial<Body>): Scene { return { ...sc, bodies: sc.bodies.map((b) => (b.id === id ? { ...b, ...patch, id: b.id, systemId: b.systemId } : b)) } }
+export function updateSystem(sc: Scene, id: string, patch: Partial<System>): Scene {
+  const n = { ...sc, systems: sc.systems.map((s) => (s.id === id ? { ...s, ...patch, id: s.id } : s)) }
+  return n
+}
+export function deleteBody(sc: Scene, id: string): Scene { const b = sc.bodies.find((x) => x.id === id); return b ? rebalance({ ...sc, bodies: sc.bodies.filter((x) => x.id !== id) }, b.systemId) : sc }
+export function duplicateBody(sc: Scene, id: string, now = Date.now()): { scene: Scene; id: string } | null {
+  const b = sc.bodies.find((x) => x.id === id); if (!b) return null; const nid = uid()
+  return { scene: rebalance({ ...sc, bodies: [...sc.bodies, { ...b, id: nid, legacyId: undefined, created: now }] }, b.systemId), id: nid }
+}
+export function moveBody(sc: Scene, id: string, systemId: string): Scene {
+  const b = sc.bodies.find((x) => x.id === id); if (!b || b.systemId === systemId || !sc.systems.some((s) => s.id === systemId)) return sc
+  return rebalance(rebalance({ ...sc, bodies: sc.bodies.map((x) => (x.id === id ? { ...x, systemId, created: Date.now() } : x)) }, b.systemId), systemId)
+}
+/** Deleting a system never deletes its links: they move to Unsorted. */
+export function deleteSystem(sc: Scene, id: string): Scene {
+  const sys = sc.systems.find((s) => s.id === id); if (!sys) return sc
+  const has = sc.bodies.some((b) => b.systemId === id)
+  if (!has) return { ...sc, systems: sc.systems.filter((s) => s.id !== id) }
+  if (id === INBOX) return sc // refuse: would orphan links
+  let n = ensureInbox(sc); n = { ...n, bodies: n.bodies.map((b) => (b.systemId === id ? { ...b, systemId: INBOX } : b)), systems: n.systems.filter((s) => s.id !== id) }
+  return rebalance(n, INBOX)
+}
